@@ -35,3 +35,18 @@ name = 'SN2003he_host'
 
 files,magdata = spt.do_photometry_radec(RA,Dec,z,r,name=name,show_plots=True)
 ~~~~
+
+The program will print magnitudes in different methods, downloaded image containing the target coordinate, and masked image of the aperture.
+
+e.g.
+
+~~~~
+* querying data...
+* downloading image files...
+* decompressing image files...
+* performing photometry...
+              u       g        r        i        z
+asinh   19.1982  17.943  17.2641  16.9038  16.6108
+pogson  19.1982  17.943  17.2641  16.9038  16.6108
+~~~~
+![](example.png)
