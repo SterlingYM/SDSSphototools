@@ -33,21 +33,21 @@ asinh_mag_params = {
 
 def pogson_mag(flux):
     '''
-    returns magnitude from SDSS flux with 'conventional' log scale
+    returns magnitude from SDSS flux with 'conventional' log scale. flux is in nanomaggy.
     m = 22.5 - 2.5log10(f)
     '''
     return 22.5 - 2.5 * np.log10(flux)
 
-def asinh_mag(flux,filt,f0=10**(22.5/2.5)):
+def asinh_mag(flux_nano,filt):
     '''
-    returns magnitude in asinh scale calculted from SDSS flux
-    TODO: check f0 value
+    returns magnitude in asinh scale calculted from SDSS flux. Note that 
+    Note that convension of 'flux' is different from 'f' in pogson_mag (SDSS website is very confusing indeed).
     '''
     b = asinh_mag_params[filt]
-    return -2.5/np.log(10) * (np.arcsinh((flux/f0)/(2*b))+np.log(b))
+    flux = flux_nano * 1e-9
+    return -2.5/np.log(10) * (np.arcsinh(flux/(2*b))+np.log(b))
 
-
-def sdss_download_fits(RA,DEC,base_path='./.tmp',verbal=False):
+def sdss_download_fits(RA,DEC,base_path='./.tmp',verbal=False,name='unnamed'):
     '''
     Download image files from SDSS. 
 	 Target image files contain RA and DEC given and are returned as fits files.
@@ -65,15 +65,15 @@ def sdss_download_fits(RA,DEC,base_path='./.tmp',verbal=False):
         os.mkdir(base_path)
     
     # retrieve page
-	 if verbal:
+    if verbal:
         print('* querying data...',end='')
     page = urllib.request.urlopen(f"https://dr12.sdss.org/fields/raDec?ra={RA}&dec={DEC}")
     soup = BeautifulSoup(page, 'html.parser')
-	 if verbal:
-		  print('Done')
+    if verbal:
+	    print('Done')
 		
     # iterate through page and download relevant files
-	 if verbal:
+    if verbal:
         print('* downloading image files...',end='')
     files_compressed = []
     for ss in soup.find_all('a', href=True):
@@ -82,15 +82,15 @@ def sdss_download_fits(RA,DEC,base_path='./.tmp',verbal=False):
             outfile = '{}{}-{}.fits.bz2'.format(base_path, name, filt)
             urllib.request.urlretrieve("https://dr12.sdss.org{}".format(ss['href']), outfile)
             files_compressed.append(outfile)
-	 if verbal:
-		  print('Done')
-	 return files_compressed
+    if verbal:
+        print('Done')
+    return files_compressed
 	
 def decompress_bz2(files_compressed,verbal=False):
-	 '''
-	 Decompresses bz2 compressed files.
-	 '''
-	 if verbal:
+    '''
+    Decompresses bz2 compressed files.
+    '''
+    if verbal:
         print('* decompressing image files...',end='')
     files = []
     for filepath in files_compressed:
@@ -99,52 +99,53 @@ def decompress_bz2(files_compressed,verbal=False):
         data = zipfile.read() # get the decompressed data
         open(newfilepath, 'wb').write(data) # write a uncompressed file
         files.append(newfilepath)
-	 if verbal:
-		  print('Done')
-	 return files
+    if verbal:
+        print('Done')
+    return files
 
 def angular_dist(r,z,d=None,H0=70,Om0=0.3):
-	 '''
-	 Calculates projected angular distance of given local size r at redshift z.
-	 TODO: add option to calculate from distance rather than z
-	 '''
-	 cosmo = FlatLambdaCDM(H0=H0, Om0=Om0)
-	 Mpc_per_rad = cosmo.angular_diameter_distance(z)
-	 theta = (r.to(u.Mpc) / Mpc_per_rad * u.rad)
-	 return theta
+    '''
+    Calculates projected angular distance of given local size r at redshift z.
+    TODO: add option to calculate from distance rather than z
+    '''
+    cosmo = FlatLambdaCDM(H0=H0, Om0=Om0)
+    Mpc_per_rad = cosmo.angular_diameter_distance(z)
+    theta = (r.to(u.Mpc) / Mpc_per_rad * u.rad)
+    return theta
 
-def do_photometry_radec(RA,DEC,r,z,theta=None,files=None,name='unnamed',
-	                     base_path='./.tmp/',show_plots=False,verbal=False):
+def do_photometry_radec(RA,DEC,r=None,z=None,theta=None,files=None,name='unnamed',base_path='./.tmp/',show_plots=False,verbal=False):
     '''
     A tool to perform aperture photometry at given RA & Dec.
     The sum of flux in each pixel within the aperture is used to calulate the magnitude.
-    
+
     Args:
         RA: Right Ascension in degrees (J2000)
         DEC: Declination of the object in degrees (J2000)
         r: Aperture object with Astropy units. (e.g. 2*u.kpc)
         z: Redshift of the object. Used to determine the projected angular size of aperture.
-		  theta: Aperture angular radius with Astropy units (e.g. 2*u.arcsec). r and z are ignored if this is given.
-		  files: A list of paths (filenames) to sdss fits files. Files won't be newly downloaded if this is given. RA and DEC are still required for photometry.
+    theta: Aperture angular radius with Astropy units (e.g. 2*u.arcsec). r and z are ignored if this is given.
+    files: A list of paths (filenames) to sdss fits files. Files won't be newly downloaded if this is given. RA and DEC are still required for photometry.
         name: name of the object.
         base_path: the directory in which all downloaded data are stored.
     Returns:
         files: a list of image files downloaded from SDSS.
         magdata: a pandas dataframe cotaining estimated magnitudes.
     '''
-	 # file download
-	 if files == None:
-	     files_compressed = sdss_download_fits(RA,DEC,base_path,verbal=verbal)
+	# file download
+    if files == None:
+        files_compressed = sdss_download_fits(RA,DEC,base_path,verbal=verbal,name=name)
         files = decompress_bz2(files_compressed,verbal=verbal)
             
     # determine aperture size from r and z
-	 if theta == None:
-	     theta = angular_dist(r,z)
+    if theta == None:
+        if (r==None) or (z==None):
+            print('local radius r and redshift z are required.')
+        theta = angular_dist(r,z)
     pos = SkyCoord(RA * u.deg, DEC * u.deg)
-	 aperture_obj = SkyCircularAperture(pos, theta.to(u.arcsec))
+    aperture_obj = SkyCircularAperture(pos, theta.to(u.arcsec))
 	
     # do photometry
-	 if verbal:
+    if verbal:
         print('* performing photometry...',end='')
     filters = []
     mags_asnh = []
@@ -158,9 +159,9 @@ def do_photometry_radec(RA,DEC,r,z,theta=None,files=None,name='unnamed',
             # photometry
             aperture = aperture_obj.to_pixel(cs)
             local_flux = aperture.to_mask().multiply(img_data)
-            mean_flux  = local_flux.flatten().sum()
-            mag1 = asinh_mag(mean_flux,filt) # asinh
-            mag2 = pogson_mag(mean_flux) # pogson
+            total_flux  = local_flux.flatten().sum()
+            mag1 = asinh_mag(total_flux,filt) # asinh
+            mag2 = pogson_mag(total_flux) # pogson
             mags_asnh.append(mag1)
             mags_pogson.append(mag2)
             filters.append(filt)
@@ -169,19 +170,20 @@ def do_photometry_radec(RA,DEC,r,z,theta=None,files=None,name='unnamed',
             if show_plots:
                 fig,(ax1,ax2) = plt.subplots(1,2,figsize=(18,6.5))
                 norm = simple_norm(img_data, 'sqrt', percent=99)
-                im = ax1.imshow(img_data,norm=norm)
+                im1 = ax1.imshow(img_data,norm=norm)
+                plt.colorbar(im1,ax=ax1)
                 aperture.plot(color='red', lw=2,axes=ax1)
-                ax2.imshow(local_flux)
-                plt.colorbar(im)
+                im2 = ax2.imshow(local_flux)
+                plt.colorbar(im2,ax=ax2)
     if verbal:
-		  print('Done')
+        print('Done')
 		
     # data
     magdata = pd.DataFrame(columns=['u','g','r','i','z'])
     for filt,mag1,mag2 in zip(filters,mags_asnh,mags_pogson):
         magdata.loc['asinh',filt] = mag1
         magdata.loc['pogson',filt] = mag2
-	 if verbal:
+    if verbal:
         print(magdata)
     
     return files, magdata
