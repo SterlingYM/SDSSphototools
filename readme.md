@@ -3,6 +3,7 @@
 Yukei S. Murakami (sterling.astro@berkeley.edu)
 
 A set of helper tools to perform aperture photometry on SDSS images.
+This tool is developed to provide photometric SED of the local environment where transient objects (SNe) are detected.
 
 ----------------------
 ## Requirements
@@ -50,3 +51,10 @@ asinh   19.1982  17.943  17.2641  16.9038  16.6108
 pogson  19.1982  17.943  17.2641  16.9038  16.6108
 ~~~~
 ![](example.png)
+
+
+## issues & todo
+
+* SN subtraction
+* psf mag, other methods
+* more flexible aperture arguments (maybe add ```r_angle=None``` as an optional argument?)
