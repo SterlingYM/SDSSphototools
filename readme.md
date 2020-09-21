@@ -58,3 +58,4 @@ pogson  19.1982  17.943  17.2641  16.9038  16.6108
 * SN subtraction
 * psf mag, other methods
 * more flexible aperture arguments (maybe add ```r_angle=None``` as an optional argument?)
+* <mark>get uncertainties<mark>
