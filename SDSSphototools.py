@@ -154,10 +154,10 @@ def asinh_mag_inverse(filt,mag,mag_err):
     Returns flux in maggies (= nanomaggies * 1e-9) calculated from magnitudes.
     '''
     b = asinh_mag_params[filt]
-    flux = np.sinh(mag/(2.5/np.log(10))-np.log(b)) * (2*b)
+    flux = - np.sinh(mag/(2.5/np.log(10))-np.log(b)) * (2*b)
     flux_err = mag_err / -2.5/np.log(10) * np.sqrt( (flux/(2*b))**2 + 1)
     return flux,flux_err
-    
+
 ##### SDSS Query Tools #####
 def sdss_download_fits(RA,DEC,base_path='./.tmp',verbal=False,name='unnamed'):
     '''
